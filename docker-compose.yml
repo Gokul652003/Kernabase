@@ -23,6 +23,13 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # Anything else set in .env reaches the app without needing a line here — the
+    # explicit mappings below still win, since `environment` overrides `env_file`.
+    # That matters for the remapped ones: PGPASSWORD comes from POSTGRES_PASSWORD and
+    # CORS_ORIGINS from PUBLIC_ORIGIN, so they must stay explicit.
+    env_file:
+      - path: .env
+        required: false
     environment:
       NODE_ENV: production
       PORT: 3001
@@ -39,6 +46,12 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
       TENANT_POOL_CONNECTION_BUDGET: ${TENANT_POOL_CONNECTION_BUDGET:-100}
       TENANT_STATEMENT_TIMEOUT_MS: ${TENANT_STATEMENT_TIMEOUT_MS:-15000}
+      # Databases the studio will provision per account. Each is a real CREATE
+      # DATABASE, so this is what bounds disk use when signup is open.
+      MAX_MANAGED_PROJECTS_PER_USER: ${MAX_MANAGED_PROJECTS_PER_USER:-3}
+      # Session lifetime. Tokens are stateless and cannot be revoked, so a shorter
+      # value is the only way to bound a leaked one.
+      STUDIO_JWT_EXPIRES_IN: ${STUDIO_JWT_EXPIRES_IN:-30d}
     ports:
       - "3001:3001"
     healthcheck:
