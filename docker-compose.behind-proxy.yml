@@ -1,0 +1,24 @@
+# Run behind a reverse proxy that already owns ports 80 and 443.
+#
+# Use this when the server already serves other sites — the existing proxy keeps
+# handling TLS for every domain, and this stack listens on a loopback port it forwards
+# to. Trying to bind 80/443 a second time simply fails with "address already in use".
+#
+#   docker compose -f docker-compose.registry.yml -f docker-compose.behind-proxy.yml up -d
+#
+# Then add the site block from DEPLOY.md to the host proxy.
+services:
+  edge:
+    environment:
+      # Plain HTTP: the host proxy terminates TLS, so Caddy here must not attempt ACME.
+      SITE_ADDRESS: ":80"
+      BACKEND_ORIGIN: backend:3001
+    ports: !override
+      # Loopback only — the host proxy reaches it, the internet cannot.
+      - "127.0.0.1:${EDGE_LOCAL_PORT:-8081}:80"
+
+  backend:
+    environment:
+      # Two hops now: the host proxy, then this stack's own edge. Undercounting makes
+      # rate limiting see the proxy's address instead of the visitor's.
+      TRUSTED_PROXY_HOPS: "2"

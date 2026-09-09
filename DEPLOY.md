@@ -100,6 +100,37 @@ TENANT_POOL_CONNECTION_BUDGET=40
 Leave `ALLOW_PRIVATE_DATABASE_HOSTS=false`. On a shared server it is what stops one user
 pointing the studio at the control plane or scanning the internal network.
 
+## 2b. If the server already runs a web server
+
+Check before starting — a second process cannot bind ports 80 and 443:
+
+```bash
+ss -lptn 'sport = :80 or sport = :443'
+```
+
+If Caddy, nginx or Apache already serves other sites there, keep it as the TLS
+terminator and run this stack on a loopback port behind it:
+
+```bash
+echo "EDGE_LOCAL_PORT=8081" >> .env
+docker compose -f docker-compose.registry.yml -f docker-compose.behind-proxy.yml up -d
+```
+
+Then add one site block to the existing proxy. For Caddy (`/etc/caddy/Caddyfile`):
+
+```
+studio.example.com {
+	reverse_proxy 127.0.0.1:8081
+}
+```
+
+`systemctl reload caddy`, and it obtains the certificate itself. For nginx, proxy to the
+same address and keep `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;` so
+rate limiting still sees real client addresses.
+
+The overlay sets `TRUSTED_PROXY_HOPS=2` — the host proxy plus this stack's own edge.
+Undercount it and every visitor shares one rate-limit bucket.
+
 ## 3. Start
 
 Option A (images):
