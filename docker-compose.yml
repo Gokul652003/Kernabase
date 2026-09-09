@@ -1,7 +1,8 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: kernabase-postgres
+    # No container_name: it is globally unique and would stop this stack running
+    # alongside another compose project on the same host.
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}

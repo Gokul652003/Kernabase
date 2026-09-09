@@ -1,0 +1,78 @@
+# Serve PostgreSQL over TLS, reusing the certificate the host's Caddy already manages.
+#
+#   docker compose -f docker-compose.registry.yml -f docker-compose.behind-proxy.yml \
+#                  -f docker-compose.tls.yml up -d
+#
+# Because the certificate is issued for the same domain the studio is served on, a client
+# connecting to that hostname on the PostgreSQL port can use sslmode=verify-full — the
+# strongest mode, which checks the server is who it claims to be rather than only
+# encrypting the connection.
+#
+# Requires CERT_DOMAIN and, if Caddy stores its data elsewhere, CADDY_CERT_DIR.
+services:
+  # Runs once and exits, so the certificate exists before PostgreSQL starts. Without
+  # this the two would deadlock: PostgreSQL treats a missing certificate as fatal when
+  # ssl=on, and a watcher that waits for a healthy database would never get to install
+  # one.
+  cert-init:
+    image: postgres:16-alpine
+    environment:
+      CERT_SYNC_MODE: once
+      CERT_DOMAIN: ${CERT_DOMAIN:?set CERT_DOMAIN, e.g. studio.example.com}
+    volumes:
+      - ${CADDY_CERT_DIR:-/var/lib/caddy/.local/share/caddy/certificates}:/caddy-certs:ro
+      - db-certs:/certs
+      - ./deploy/sync-postgres-certs.sh:/usr/local/bin/sync-postgres-certs.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/sync-postgres-certs.sh"]
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Reinstalls the certificate when Caddy renews it, roughly every 60 days, and asks
+  # PostgreSQL to reload so the change takes effect without dropping connections.
+  cert-sync:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      CERT_SYNC_MODE: watch
+      CERT_DOMAIN: ${CERT_DOMAIN:?set CERT_DOMAIN, e.g. studio.example.com}
+      CERT_SYNC_INTERVAL: ${CERT_SYNC_INTERVAL:-43200}
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-postgres}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-mydb}
+    volumes:
+      # Read-only: this container should never be able to damage Caddy's storage.
+      - ${CADDY_CERT_DIR:-/var/lib/caddy/.local/share/caddy/certificates}:/caddy-certs:ro
+      - db-certs:/certs
+      - ./deploy/sync-postgres-certs.sh:/usr/local/bin/sync-postgres-certs.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/sync-postgres-certs.sh"]
+    logging: *logging
+
+  db:
+    # ssl_min_protocol_version rules out TLS 1.0/1.1, which are long deprecated.
+    # A missing certificate is fatal to PostgreSQL when ssl=on, which is why cert-init
+    # must complete first.
+    depends_on:
+      cert-init:
+        condition: service_completed_successfully
+    command: >
+      postgres
+      -c max_connections=${POSTGRES_MAX_CONNECTIONS:-120}
+      -c shared_buffers=${POSTGRES_SHARED_BUFFERS:-256MB}
+      -c ssl=on
+      -c ssl_cert_file=/certs/server.crt
+      -c ssl_key_file=/certs/server.key
+      -c ssl_min_protocol_version=TLSv1.2
+    volumes:
+      - mydb-studio-data:/var/lib/postgresql/data
+      - db-certs:/certs:ro
+    logging: *logging
+
+volumes:
+  db-certs:
