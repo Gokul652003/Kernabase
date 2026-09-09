@@ -61,6 +61,8 @@ export interface McpCredentialRecord {
 
 export interface ProjectRepository {
   listOwned(userId: string): Promise<ProjectRecord[]>;
+  /** Used to enforce the per-user managed-database quota. */
+  countManaged(userId: string): Promise<number>;
   createProject(userId: string, project: NewProjectRecord, isManaged: boolean): Promise<ProjectRecord>;
   findOwned(projectId: string, userId: string): Promise<ProjectRecord | null>;
   rename(projectId: string, userId: string, name: string): Promise<ProjectRecord | null>;

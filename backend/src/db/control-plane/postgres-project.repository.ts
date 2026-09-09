@@ -30,6 +30,14 @@ export class PostgresProjectRepository implements ProjectRepository {
     return rows;
   }
 
+  async countManaged(userId: string): Promise<number> {
+    const { rows } = await this.pool.query<{ count: string }>(
+      'SELECT count(*)::int AS count FROM _studio.projects WHERE owner_id = $1 AND is_managed',
+      [userId],
+    );
+    return Number(rows[0]?.count ?? 0);
+  }
+
   async createProject(userId: string, project: NewProjectRecord, isManaged: boolean): Promise<ProjectRecord> {
     const { rows } = await this.pool.query<ProjectRecord>(
       `INSERT INTO _studio.projects (owner_id, name, host, port, database, db_user, db_password, is_managed)

@@ -35,6 +35,17 @@ export class ProjectsService implements ProjectsApplication {
   }
 
   async createManaged(userId: string, name: string): Promise<ProjectSummary> {
+    // Checked before CREATE ROLE, so a refused request leaves nothing behind. This is a
+    // best-effort cap: two simultaneous requests can both pass it, which costs one extra
+    // database rather than anything unbounded.
+    const existing = await this.projects.countManaged(userId);
+    const limit = this.config.maxManagedProjectsPerUser;
+    if (existing >= limit) {
+      throw ApplicationError.badRequest(
+        `You already have ${existing} of ${limit} databases. Delete one first, or connect an existing database instead.`,
+      );
+    }
+
     const suffix = randomBytes(10).toString('hex');
     const roleName = `tenant_${suffix}`;
     const database = `tenant_db_${suffix}`;

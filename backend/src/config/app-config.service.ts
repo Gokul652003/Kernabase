@@ -63,6 +63,14 @@ export class AppConfig {
     rateWindowMs: this.integer('RATE_LIMIT_WINDOW_MS', 60000),
   };
   readonly tenantStatementTimeoutMs = this.integer('TENANT_STATEMENT_TIMEOUT_MS', 15000);
+  /**
+   * How many databases one account may have the studio provision for it.
+   *
+   * Each managed project is a real CREATE DATABASE on this server, so without a cap an
+   * open signup form is an unbounded way to consume disk. Connected (unmanaged)
+   * projects are only stored credentials and are not counted.
+   */
+  readonly maxManagedProjectsPerUser = this.integer('MAX_MANAGED_PROJECTS_PER_USER', 3);
   readonly sqlMaxRows = this.integer('SQL_MAX_ROWS', 10000);
   readonly sqlMaxResponseBytes = this.integer('SQL_MAX_RESPONSE_BYTES', 5_000_000);
   /**

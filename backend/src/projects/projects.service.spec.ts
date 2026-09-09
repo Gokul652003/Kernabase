@@ -30,12 +30,13 @@ function build(parts: {
   config?: Partial<AppConfig>;
 } = {}) {
   return new ProjectsService(
-    parts.repository as ProjectRepository,
+    // Default the quota lookup so each test only mocks what it actually exercises.
+    { countManaged: async () => 0, ...parts.repository } as ProjectRepository,
     parts.tester as DatabaseConnectionTester,
     parts.admin as ManagedDatabaseAdmin,
     parts.invalidator as ProjectPoolInvalidator,
     (parts.targets ?? { assertAllowed: async () => {} }) as ConnectionTargetPolicy,
-    (parts.config ?? { postgres: { host: 'managed-db', port: 5432 } }) as AppConfig,
+    { postgres: { host: 'managed-db', port: 5432 }, maxManagedProjectsPerUser: 3, ...parts.config } as AppConfig,
   );
 }
 
@@ -225,4 +226,44 @@ test('an explicit port still overrides the default', async () => {
   Object.assign(dto, { name: 'Test', host: 'db.example.com', port: 55432, database: 'app', dbUser: 'app', dbPassword: 'x' });
   await service.create('user-1', dto);
   assert.equal(saved?.port, 55432);
+});
+
+// Each managed project is a real CREATE DATABASE, so without a cap an open signup form
+// is an unbounded way to fill the disk.
+test('a user may not exceed the managed database quota', async () => {
+  const created: string[] = [];
+  const service = build({
+    repository: { countManaged: async () => 3 },
+    admin: { createRole: async (role: string) => { created.push(role); } },
+    config: { maxManagedProjectsPerUser: 3 },
+  });
+
+  await assert.rejects(
+    () => service.createManaged('user-1', 'Another'),
+    (error: unknown) =>
+      error instanceof ApplicationError
+      && error.code === 'bad_request'
+      && /already have 3 of 3/.test(error.message),
+  );
+  assert.deepEqual(created, [], 'the quota must be checked before any resource is created');
+});
+
+test('a user under the quota can still provision', async () => {
+  const created: string[] = [];
+  const service = build({
+    repository: {
+      countManaged: async () => 1,
+      createProject: async () => project({ isManaged: true }),
+    },
+    tester: { assertConnectable: async () => {} },
+    admin: {
+      createRole: async (role: string) => { created.push(role); },
+      createDatabase: async () => {},
+    },
+    config: { maxManagedProjectsPerUser: 3 },
+  });
+
+  const result = await service.createManaged('user-1', 'Second');
+  assert.equal(result.isManaged, true);
+  assert.equal(created.length, 1);
 });
