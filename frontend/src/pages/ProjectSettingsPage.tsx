@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Copy, Database, Plug, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Database, Plug, Trash2 } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import { DetailPageSkeleton } from '../components/Skeleton';
 import { ConnectionPanel } from '../components/ConnectionPanel';
@@ -55,12 +55,6 @@ export function ProjectSettingsPage() {
     }
   }
 
-  function copy(text: string) {
-    navigator.clipboard.writeText(text).then(
-      () => toast.success('Copied'),
-      () => toast.error('Could not copy'),
-    );
-  }
 
   async function handleRegeneratePassword() {
     if (!confirm('Generate a new password? The old one will stop working immediately.')) return;
@@ -136,88 +130,6 @@ export function ProjectSettingsPage() {
               {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
-        </div>
-
-        <div className="mt-4 rounded-lg border border-border bg-surface p-5">
-          <h2 className="mb-1 text-sm font-medium text-text">Connection</h2>
-          <p className="mb-4 text-xs text-text-subtle">
-            Use these to connect your own backend (NestJS, Express, anything with a Postgres client) to this
-            database.
-          </p>
-
-          {project.isManaged && (
-            <div className="mb-4 flex items-start gap-2 rounded-md border border-border bg-overlay-2 px-3 py-2 text-[11px] text-text-subtle">
-              <ShieldCheck size={14} className="mt-0.5 shrink-0 text-accent" />
-              Managed by Kernabase — its own isolated Postgres role and database, created automatically for your
-              account.
-            </div>
-          )}
-
-          <div className="space-y-2 font-mono text-xs text-text-dim">
-            <div className="flex items-center justify-between gap-2">
-              <span>
-                <span className="text-text-subtle">host:</span> {project.host}
-              </span>
-              <button onClick={() => copy(project.host)} className="shrink-0 text-text-subtle hover:text-text">
-                <Copy size={12} />
-              </button>
-            </div>
-            <div>
-              <span className="text-text-subtle">port:</span> {project.port}
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span>
-                <span className="text-text-subtle">database:</span> {project.database}
-              </span>
-              <button onClick={() => copy(project.database)} className="shrink-0 text-text-subtle hover:text-text">
-                <Copy size={12} />
-              </button>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span>
-                <span className="text-text-subtle">user:</span> {project.dbUser}
-              </span>
-              <button onClick={() => copy(project.dbUser)} className="shrink-0 text-text-subtle hover:text-text">
-                <Copy size={12} />
-              </button>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span>
-                <span className="text-text-subtle">password:</span>{' '}
-                {revealedPassword ?? (project.isManaged ? '(hidden — regenerate to get a usable one)' : '(the one you set)')}
-              </span>
-              {revealedPassword && (
-                <button
-                  onClick={() => copy(revealedPassword)}
-                  className="shrink-0 text-text-subtle hover:text-text"
-                >
-                  <Copy size={12} />
-                </button>
-              )}
-            </div>
-          </div>
-
-          {project.isManaged ? (
-            <>
-              <button
-                onClick={handleRegeneratePassword}
-                disabled={regenerating}
-                className="mt-3 flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-text-dim transition hover:bg-overlay-3 hover:text-text disabled:opacity-50"
-              >
-                <RefreshCw size={13} className={regenerating ? 'animate-spin' : ''} />
-                {regenerating ? 'Generating…' : revealedPassword ? 'Regenerate again' : 'Regenerate password'}
-              </button>
-              {revealedPassword && (
-                <p className="mt-2 text-[11px] text-warn">
-                  Copy this now — it's shown once and can't be retrieved again (only regenerated).
-                </p>
-              )}
-            </>
-          ) : (
-            <p className="mt-3 text-[11px] text-text-subtle">
-              To change these, delete this project and create a new one with updated details.
-            </p>
-          )}
         </div>
 
         <ConnectionPanel

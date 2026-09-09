@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, Copy, Eye, EyeOff, Lock, TerminalSquare } from 'lucide-react';
+import { Check, Copy, Eye, EyeOff, Lock, ShieldCheck, TerminalSquare } from 'lucide-react';
 import type { ProjectConnectionTarget } from '../types';
 
 interface ConnectionPanelProps {
@@ -101,6 +101,13 @@ export function ConnectionPanel({
         Use these from psql, pgAdmin, DBeaver, Prisma, or any Postgres client.
       </p>
 
+      {isManaged && (
+        <div className="mb-3 flex items-start gap-2 rounded-md border border-border bg-overlay-2 px-3 py-2 text-[11px] text-text-subtle">
+          <ShieldCheck size={14} className="mt-0.5 shrink-0 text-accent" />
+          Managed by Kernabase — its own isolated Postgres role and database, created for your account.
+        </div>
+      )}
+
       <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-1.5 rounded-md border border-border bg-bg px-3 py-2.5 font-mono text-[11px] text-text-dim">
         <span><span className="text-text-subtle">host</span> {connection.host}</span>
         <span><span className="text-text-subtle">port</span> {connection.port}</span>
@@ -153,6 +160,12 @@ export function ConnectionPanel({
           identity. Do not lower it to <code className="text-text-dim">disable</code>.
         </span>
       </p>
+
+      {!isManaged && (
+        <p className="mt-3 border-t border-border pt-3 text-[11px] text-text-subtle">
+          These are the details you supplied. To change them, delete this project and add it again.
+        </p>
+      )}
 
       {isManaged && (
         <div className="mt-3 border-t border-border pt-3">
