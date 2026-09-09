@@ -71,6 +71,17 @@ export class AppConfig {
    * projects are only stored credentials and are not counted.
    */
   readonly maxManagedProjectsPerUser = this.integer('MAX_MANAGED_PROJECTS_PER_USER', 3);
+  /**
+   * The address an outside client should use to reach a managed database.
+   *
+   * Managed projects store the host this process uses internally, which under Docker is
+   * a service name like `db` — correct for the backend, useless to anyone running psql
+   * or pgAdmin. When PostgreSQL is published, set this to the public hostname and the
+   * studio shows that instead. Empty means the databases are not reachable from
+   * outside, and the UI says so rather than offering an address that cannot work.
+   */
+  readonly tenantPublicHost = process.env['TENANT_PUBLIC_HOST']?.trim() ?? '';
+  readonly tenantPublicPort = this.integer('TENANT_PUBLIC_PORT', this.integer('PGPORT', 55432));
   readonly sqlMaxRows = this.integer('SQL_MAX_ROWS', 10000);
   readonly sqlMaxResponseBytes = this.integer('SQL_MAX_RESPONSE_BYTES', 5_000_000);
   /**

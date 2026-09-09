@@ -4,11 +4,11 @@ import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { AppConfig } from '@/config/app-config.service';
 import { CreateProjectDto } from '@/projects/dto/create-project.dto';
 import { ConnectionTargetPolicy } from '@/projects/connection-target.policy';
-import { ProjectSummary } from '@/projects/projects.types';
+import { ProjectConnectionTarget, ProjectSummary } from '@/projects/projects.types';
 import { ProjectsApplication } from '@/projects/projects-service.port';
 import {
   DATABASE_CONNECTION_TESTER, DatabaseConnectionTester, MANAGED_DATABASE_ADMIN, ManagedDatabaseAdmin,
-  PROJECT_POOL_INVALIDATOR, PROJECT_REPOSITORY, ProjectPoolInvalidator, ProjectRepository,
+  PROJECT_POOL_INVALIDATOR, PROJECT_REPOSITORY, ProjectPoolInvalidator, ProjectRecord, ProjectRepository,
 } from '@/db/control-plane/control-plane.ports';
 
 // MCP tokens are bearer credentials handed to external tools (Claude Desktop, etc.), so like
@@ -30,8 +30,33 @@ export class ProjectsService implements ProjectsApplication {
     private readonly config: AppConfig,
   ) {}
 
+  /**
+   * Adds the address an outside client should use, which is not what is stored.
+   *
+   * A managed project records the host this process reaches PostgreSQL on — a Docker
+   * service name. An unmanaged project already records an address the user gave us, so
+   * that one is reported as-is.
+   */
+  private withConnection(project: ProjectRecord): ProjectSummary {
+    return { ...project, connection: this.connectionTarget(project) };
+  }
+
+  private connectionTarget(project: ProjectRecord): ProjectConnectionTarget | null {
+    if (!project.isManaged) {
+      return { host: project.host, port: project.port, database: project.database, user: project.dbUser };
+    }
+    // Not published, so there is no address to hand out.
+    if (!this.config.tenantPublicHost) return null;
+    return {
+      host: this.config.tenantPublicHost,
+      port: this.config.tenantPublicPort,
+      database: project.database,
+      user: project.dbUser,
+    };
+  }
+
   async list(userId: string): Promise<ProjectSummary[]> {
-    return this.projects.listOwned(userId);
+    return (await this.projects.listOwned(userId)).map((project) => this.withConnection(project));
   }
 
   async createManaged(userId: string, name: string): Promise<ProjectSummary> {
@@ -75,19 +100,19 @@ export class ProjectsService implements ProjectsApplication {
     // assertConnectable so a refused host is never dialled at all.
     if (!isManaged) await this.connectionTargets.assertAllowed(dto.host, dto.port, dto.database);
     await this.connectionTester.assertConnectable(dto);
-    return this.projects.createProject(userId, dto, isManaged);
+    return this.withConnection(await this.projects.createProject(userId, dto, isManaged));
   }
 
   async get(projectId: string, userId: string): Promise<ProjectSummary> {
     const project = await this.projects.findOwned(projectId, userId);
     if (!project) throw ApplicationError.notFound('Project not found');
-    return project;
+    return this.withConnection(project);
   }
 
   async update(projectId: string, userId: string, name: string): Promise<ProjectSummary> {
     const project = await this.projects.rename(projectId, userId, name);
     if (!project) throw ApplicationError.notFound('Project not found');
-    return project;
+    return this.withConnection(project);
   }
 
   async remove(projectId: string, userId: string): Promise<void> {
@@ -141,7 +166,7 @@ export class ProjectsService implements ProjectsApplication {
   async updateMcpPermissions(projectId: string, userId: string, allowWrite: boolean, allowSchema: boolean): Promise<ProjectSummary> {
     const project = await this.projects.setMcpPermissions(projectId, userId, allowWrite, allowSchema);
     if (!project) throw ApplicationError.notFound('Project not found');
-    return project;
+    return this.withConnection(project);
   }
 
   // Returns the owning user's id and permission flags if the token is valid for this

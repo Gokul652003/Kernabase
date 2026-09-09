@@ -1,0 +1,27 @@
+# Publish PostgreSQL so people can connect their own tools — psql, pgAdmin, DBeaver,
+# Prisma, a NestJS app — to the databases the studio provisioned for them.
+#
+#   docker compose -f docker-compose.registry.yml -f docker-compose.behind-proxy.yml \
+#                  -f docker-compose.tls.yml -f docker-compose.publish-db.yml up -d
+#
+# Use it WITH docker-compose.tls.yml, never without. Publishing this port without TLS
+# puts every password and every row on the open internet in plaintext.
+#
+# You must also open the port on the host firewall, e.g. `ufw allow 5432`.
+services:
+  db:
+    ports: !override
+      # A non-standard port is available via POSTGRES_PUBLIC_PORT if you would rather
+      # not answer the constant background scanning of 5432. It is noise reduction
+      # rather than security — TLS and strong per-tenant passwords are the defence.
+      - "${POSTGRES_PUBLIC_PORT:-5432}:5432"
+
+  backend:
+    environment:
+      # What the studio shows people as their connection host. Without it the UI reports
+      # that the database is not reachable from outside, rather than offering the
+      # internal Docker service name, which no external client can resolve.
+      TENANT_PUBLIC_HOST: ${TENANT_PUBLIC_HOST:?set TENANT_PUBLIC_HOST, e.g. studio.example.com}
+      # The port a client should use. Matches the published port above, and must equal
+      # the certificate's domain host for sslmode=verify-full to succeed.
+      TENANT_PUBLIC_PORT: ${POSTGRES_PUBLIC_PORT:-5432}

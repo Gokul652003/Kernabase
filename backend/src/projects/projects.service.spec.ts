@@ -49,7 +49,12 @@ test('a connection is screened, then proven reachable, then saved', async () => 
   });
 
   const input = { name: 'Test', host: 'db.example.com', port: 5432, database: 'test', dbUser: 'test', dbPassword: 'secret' };
-  assert.deepEqual(await service.create('user-1', input), project());
+  // A connected project reports back the address it was given, so the caller can show
+  // it without having to reassemble it from separate fields.
+  assert.deepEqual(await service.create('user-1', input), {
+    ...project(),
+    connection: { host: 'localhost', port: 5432, database: 'test', user: 'test' },
+  });
   assert.deepEqual(calls, ['screen', 'test', 'save'], 'a refused host must never be dialled');
 });
 
@@ -266,4 +271,59 @@ test('a user under the quota can still provision', async () => {
   const result = await service.createManaged('user-1', 'Second');
   assert.equal(result.isManaged, true);
   assert.equal(created.length, 1);
+});
+
+// A managed project stores the host this process uses internally — a Docker service
+// name — which is useless to anyone running psql or pgAdmin.
+test('a managed project reports the configured public address, not the internal one', async () => {
+  const service = build({
+    repository: { findOwned: async () => project({ isManaged: true, host: 'db', port: 5432 }) },
+    config: { tenantPublicHost: 'studio.example.com', tenantPublicPort: 5432 },
+  });
+
+  const result = await service.get('project-1', 'user-1');
+  assert.equal(result.host, 'db', 'the stored host is what the backend still uses');
+  assert.deepEqual(result.connection, {
+    host: 'studio.example.com',
+    port: 5432,
+    database: 'test',
+    user: 'test',
+  });
+});
+
+// Offering an address that cannot work is worse than saying there is none.
+test('a managed project reports no address when postgres is not published', async () => {
+  const service = build({
+    repository: { findOwned: async () => project({ isManaged: true, host: 'db' }) },
+    config: { tenantPublicHost: '' },
+  });
+
+  assert.equal((await service.get('project-1', 'user-1')).connection, null);
+});
+
+test('a connected project reports the address the user gave, unchanged', async () => {
+  const service = build({
+    repository: { findOwned: async () => project({ isManaged: false, host: 'their-db.example.com', port: 6543 }) },
+    config: { tenantPublicHost: 'studio.example.com' },
+  });
+
+  const result = await service.get('project-1', 'user-1');
+  assert.deepEqual(result.connection, {
+    host: 'their-db.example.com',
+    port: 6543,
+    database: 'test',
+    user: 'test',
+  });
+});
+
+test('every project in a listing carries its connection target', async () => {
+  const service = build({
+    repository: { listOwned: async () => [project({ isManaged: true }), project({ id: 'p2', isManaged: false })] },
+    config: { tenantPublicHost: 'studio.example.com', tenantPublicPort: 5432 },
+  });
+
+  const listed = await service.list('user-1');
+  assert.equal(listed.length, 2);
+  assert.equal(listed[0]?.connection?.host, 'studio.example.com');
+  assert.equal(listed[1]?.connection?.host, 'localhost', 'unmanaged keeps its own host');
 });

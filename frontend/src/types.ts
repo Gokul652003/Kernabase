@@ -27,6 +27,20 @@ export interface AuthUser {
   email: string;
 }
 
+export interface ProjectConnectionTarget {
+  host: string;
+  port: number;
+  database: string;
+  user: string;
+}
+
+export interface ProjectConnectionTarget {
+  host: string;
+  port: number;
+  database: string;
+  user: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -39,6 +53,8 @@ export interface Project {
   mcpAllowWrite: boolean;
   mcpAllowSchema: boolean;
   createdAt: string;
+  /** Null when the database is only reachable through the studio and MCP. */
+  connection: ProjectConnectionTarget | null;
 }
 
 /** PostgreSQL's default port; the backend assumes it too when none is sent. */

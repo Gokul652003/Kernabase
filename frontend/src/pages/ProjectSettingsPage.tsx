@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Copy, Database, Plug, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import { DetailPageSkeleton } from '../components/Skeleton';
+import { ConnectionPanel } from '../components/ConnectionPanel';
 import { api } from '../lib/api';
 import type { Project } from '../types';
 
@@ -218,6 +219,14 @@ export function ProjectSettingsPage() {
             </p>
           )}
         </div>
+
+        <ConnectionPanel
+          connection={project.connection}
+          isManaged={project.isManaged}
+          revealedPassword={revealedPassword}
+          onRotatePassword={handleRegeneratePassword}
+          rotating={regenerating}
+        />
 
         <Link
           to={`/projects/${projectId}/mcp`}
