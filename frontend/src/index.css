@@ -1,0 +1,111 @@
+@import "tailwindcss";
+
+/* Light palette lives on bare :root — it's the default until dark wins below. */
+@theme {
+  --color-bg: #ffffff;
+  --color-surface: #f6f7f8;
+  --color-surface-hover: #eceef1;
+  --color-border: rgba(15, 23, 42, 0.09);
+  --color-border-strong: rgba(15, 23, 42, 0.18);
+  --color-accent: #059669;
+  --color-accent-fg: #ffffff;
+  --color-accent-glow: rgba(5, 150, 105, 0.35);
+  --color-danger: #dc2626;
+  --color-text: #0f1115;
+  --color-text-dim: #55606b;
+  --color-text-subtle: #8a94a0;
+  --color-info: #0e7490;
+  --color-violet: #7e22ce;
+  --color-warn: #b45309;
+  --color-track-off: #d4d4d8;
+  --color-dot-off: #a1a1aa;
+  --color-overlay-1: rgba(15, 23, 42, 0.035);
+  --color-overlay-2: rgba(15, 23, 42, 0.05);
+  --color-overlay-3: rgba(15, 23, 42, 0.065);
+  --color-overlay-4: rgba(15, 23, 42, 0.1);
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+}
+
+/* System dark preference wins unless the user explicitly chose light. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg: #0a0a0c;
+    --color-surface: #111114;
+    --color-surface-hover: #17171c;
+    --color-border: rgba(255, 255, 255, 0.08);
+    --color-border-strong: rgba(255, 255, 255, 0.14);
+    --color-accent: #10b981;
+    --color-accent-fg: #04140c;
+    --color-accent-glow: rgba(52, 211, 153, 0.6);
+    --color-danger: #f87171;
+    --color-text: #f3f4f6;
+    --color-text-dim: #9ca3af;
+    --color-text-subtle: #6b7280;
+    --color-info: #22d3ee;
+    --color-violet: #c084fc;
+    --color-warn: #fbbf24;
+    --color-track-off: #3f3f46;
+    --color-dot-off: #52525b;
+    --color-overlay-1: rgba(255, 255, 255, 0.02);
+    --color-overlay-2: rgba(255, 255, 255, 0.03);
+    --color-overlay-3: rgba(255, 255, 255, 0.04);
+    --color-overlay-4: rgba(255, 255, 255, 0.06);
+  }
+}
+
+/* Explicit user choice always wins over system preference, in both directions. */
+:root[data-theme="dark"] {
+  --color-bg: #0a0a0c;
+  --color-surface: #111114;
+  --color-surface-hover: #17171c;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
+  --color-accent: #10b981;
+  --color-accent-fg: #04140c;
+  --color-accent-glow: rgba(52, 211, 153, 0.6);
+  --color-danger: #f87171;
+  --color-text: #f3f4f6;
+  --color-text-dim: #9ca3af;
+  --color-text-subtle: #6b7280;
+  --color-info: #22d3ee;
+  --color-violet: #c084fc;
+  --color-warn: #fbbf24;
+  --color-track-off: #3f3f46;
+  --color-dot-off: #52525b;
+  --color-overlay-1: rgba(255, 255, 255, 0.02);
+  --color-overlay-2: rgba(255, 255, 255, 0.03);
+  --color-overlay-3: rgba(255, 255, 255, 0.04);
+  --color-overlay-4: rgba(255, 255, 255, 0.06);
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  overscroll-behavior: none;
+}
+
+::selection {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-overlay-3);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-overlay-4);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
