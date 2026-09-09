@@ -37,6 +37,37 @@ inside the Docker network.
 
 ## 2. Configure
 
+Two ways to get the code onto the server. **Pre-built images need no clone** and no
+build on the VPS — a small server with 1–2 GB will struggle to build the frontend, so
+this is usually the better option.
+
+### Option A — pre-built images (no clone, no build)
+
+Push to `main` and the `publish images` workflow builds both images and pushes them to
+GitHub Container Registry. On the VPS you need only two files:
+
+```bash
+mkdir -p /root/kernabase && cd /root/kernabase
+curl -O https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/docker-compose.registry.yml
+nano .env      # see below, plus IMAGE_PREFIX and IMAGE_TAG
+docker compose -f docker-compose.registry.yml up -d
+```
+
+Add to `.env`:
+
+```bash
+IMAGE_PREFIX=ghcr.io/YOUR_USER/YOUR_REPO   # the workflow appends -backend / -edge
+IMAGE_TAG=latest                           # or a version tag / commit sha to pin
+```
+
+If the package is private, authenticate first:
+`echo $GITHUB_TOKEN | docker login ghcr.io -u YOUR_USER --password-stdin`
+
+Update with `docker compose -f docker-compose.registry.yml pull && ... up -d`. Rolling
+back is a matter of changing `IMAGE_TAG` to an earlier sha and running that again.
+
+### Option B — build on the server
+
 ```bash
 git clone YOUR_REPO_URL kernabase && cd kernabase
 cp .env.example .env
@@ -70,6 +101,15 @@ Leave `ALLOW_PRIVATE_DATABASE_HOSTS=false`. On a shared server it is what stops 
 pointing the studio at the control plane or scanning the internal network.
 
 ## 3. Start
+
+Option A (images):
+
+```bash
+docker compose -f docker-compose.registry.yml up -d
+docker compose -f docker-compose.registry.yml ps
+```
+
+Option B (build on the server):
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
@@ -123,6 +163,15 @@ without them restores databases whose owners do not exist. Copy the files off th
 a backup on the same disk is not a backup. Test a restore before you rely on it.
 
 ## 6. Updating
+
+Option A (images):
+
+```bash
+docker compose -f docker-compose.registry.yml pull
+docker compose -f docker-compose.registry.yml up -d
+```
+
+Option B (build on the server):
 
 ```bash
 git pull
