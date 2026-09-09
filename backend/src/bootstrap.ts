@@ -10,6 +10,10 @@ import { AppConfig } from '@/config/app-config.service';
  * differently-configured app than the one that ships.
  */
 export function configureApp(app: INestApplication, config: AppConfig): void {
+  // Only trust X-Forwarded-For when a proxy is actually in front; see trustedProxyHops.
+  if (config.trustedProxyHops > 0) {
+    app.getHttpAdapter().getInstance().set('trust proxy', config.trustedProxyHops);
+  }
   app.use(json({ limit: config.http.bodyLimit }));
   app.use(urlencoded({ extended: true, limit: config.http.bodyLimit }));
   app.enableCors({ origin: config.http.corsOrigins, credentials: true });

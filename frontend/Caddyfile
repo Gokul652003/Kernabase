@@ -1,0 +1,43 @@
+# Edge configuration.
+#
+# SITE_ADDRESS controls the mode:
+#   yourdomain.com     — Caddy obtains and renews a Let's Encrypt certificate itself
+#   :80                — plain HTTP, for local testing of the production image
+#
+# The ACME challenge needs ports 80 and 443 reachable from the internet and the domain's
+# DNS already pointing here, or certificate issuance fails and the site will not serve.
+{$SITE_ADDRESS} {
+	encode gzip zstd
+
+	# The API is same-origin, which keeps the session token off cross-site requests.
+	# The backend still applies its own CORS rules for anything that is cross-origin.
+	handle /api/* {
+		reverse_proxy {$BACKEND_ORIGIN:backend:3001}
+	}
+
+	handle {
+		root * /srv
+		# A client-side router owns every non-asset path, so unknown paths must return
+		# index.html rather than 404 — otherwise a refresh on /projects/:id breaks.
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		# HSTS is only safe once HTTPS works; Caddy omits it on plain-HTTP sites.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		# Scripts stay same-origin. CodeMirror injects inline styles, and index.html
+		# pulls Geist and JetBrains Mono from Google Fonts — both must be allowed or the
+		# SQL editor loses its styling and the app falls back to system fonts.
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
