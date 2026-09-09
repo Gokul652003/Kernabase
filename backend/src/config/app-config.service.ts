@@ -72,12 +72,25 @@ export class AppConfig {
    * to a LAN database can turn it on.
    */
   readonly allowPrivateDatabaseHosts = this.flag('ALLOW_PRIVATE_DATABASE_HOSTS', false);
+  /**
+   * How many reverse proxies sit in front of this process.
+   *
+   * Express reports the socket address as `req.ip`, which behind a proxy is the proxy
+   * itself — so every visitor shares one rate-limit bucket and the per-IP auth limit
+   * becomes a global one. Setting this to the number of trusted hops makes Express read
+   * the client address from X-Forwarded-For instead. Leave it at 0 when the process is
+   * exposed directly: trusting the header without a proxy lets a client forge its own IP.
+   */
+  readonly trustedProxyHops = this.integer('TRUSTED_PROXY_HOPS', 0, { allowZero: true });
 
-  private integer(name: string, fallback: number): number {
+  private integer(name: string, fallback: number, options?: { allowZero?: boolean }): number {
     const value = process.env[name];
     if (value === undefined) return fallback;
     const parsed = Number(value);
-    if (!Number.isInteger(parsed) || parsed <= 0) throw new Error(`${name} must be a positive integer`);
+    const floor = options?.allowZero ? 0 : 1;
+    if (!Number.isInteger(parsed) || parsed < floor) {
+      throw new Error(`${name} must be an integer of at least ${floor}`);
+    }
     return parsed;
   }
 

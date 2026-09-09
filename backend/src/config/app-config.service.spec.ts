@@ -19,9 +19,18 @@ function withEnv(overrides: Record<string, string | undefined>, fn: () => void):
 }
 
 test('integer environment values are validated', () => {
-  withEnv({ PORT: 'invalid' }, () => assert.throws(() => new AppConfig(), /PORT must be a positive integer/));
-  withEnv({ PORT: '-1' }, () => assert.throws(() => new AppConfig(), /PORT must be a positive integer/));
+  withEnv({ PORT: 'invalid' }, () => assert.throws(() => new AppConfig(), /PORT must be an integer/));
+  withEnv({ PORT: '-1' }, () => assert.throws(() => new AppConfig(), /PORT must be an integer/));
+  withEnv({ PORT: '0' }, () => assert.throws(() => new AppConfig(), /at least 1/));
   withEnv({ PORT: '8080' }, () => assert.equal(new AppConfig().port, 8080));
+});
+
+// Zero is the meaningful default here — it means "no proxy in front", and trusting
+// X-Forwarded-For without one would let a client forge its own address.
+test('the trusted proxy hop count allows zero but not negatives', () => {
+  assert.equal(new AppConfig().trustedProxyHops, 0);
+  withEnv({ TRUSTED_PROXY_HOPS: '1' }, () => assert.equal(new AppConfig().trustedProxyHops, 1));
+  withEnv({ TRUSTED_PROXY_HOPS: '-1' }, () => assert.throws(() => new AppConfig(), /at least 0/));
 });
 
 test('production refuses the insecure development secrets', () => {
