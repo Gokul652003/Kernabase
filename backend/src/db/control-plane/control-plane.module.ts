@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@/config/config.module';
 import { ConnectionRegistryModule } from '@/db/tenant/connection-registry.module';
 import { controlPlanePoolProvider } from '@/db/control-plane/control-plane.pool';
+import { ConnectionBudgetGuard } from '@/db/tenant/connection-budget.guard';
 import {
   DATABASE_CONNECTION_TESTER,
   MANAGED_DATABASE_ADMIN,
@@ -18,6 +19,7 @@ import { PostgresUserRepository } from '@/db/control-plane/postgres-user.reposit
   imports: [ConnectionRegistryModule, ConfigModule],
   providers: [
     controlPlanePoolProvider,
+    ConnectionBudgetGuard,
     { provide: USER_REPOSITORY, useClass: PostgresUserRepository },
     { provide: PROJECT_REPOSITORY, useClass: PostgresProjectRepository },
     { provide: DATABASE_CONNECTION_TESTER, useClass: PostgresConnectionTesterAdapter },
