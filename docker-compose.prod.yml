@@ -1,0 +1,86 @@
+# Production overlay. Use together with the base file:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# What it changes:
+#   - adds the edge (Caddy) that terminates TLS and serves the frontend
+#   - stops publishing PostgreSQL and the backend on the host; only the edge is exposed
+#   - applies memory limits so one service cannot starve the others on a small VPS
+#   - tells the backend it is behind one proxy, so rate limiting sees real client IPs
+services:
+  db:
+    # Compose APPENDS to sequences from an overlay, so the base mapping has to be reset
+    # first — otherwise the port is published twice and the container collides with
+    # itself. Bound to loopback so `psql` still works over an SSH tunnel, but nothing
+    # on the internet can reach PostgreSQL directly.
+    ports: !reset []
+    expose:
+      - "5432"
+    # A tenant pool per user adds up; keep it above TENANT_POOL_CONNECTION_BUDGET plus
+    # CONTROL_POOL_MAX_CONNECTIONS, with headroom for maintenance connections.
+    command: >
+      postgres
+      -c max_connections=${POSTGRES_MAX_CONNECTIONS:-120}
+      -c shared_buffers=${POSTGRES_SHARED_BUFFERS:-256MB}
+    deploy:
+      resources:
+        limits:
+          memory: ${DB_MEMORY_LIMIT:-1g}
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  backend:
+    # Same reset: only the edge is exposed, and it reaches the backend over the
+    # compose network rather than through a published host port.
+    ports: !reset []
+    expose:
+      - "3001"
+    environment:
+      # Caddy is the single hop in front of this process. Without it Express reports the
+      # proxy's address as req.ip and every visitor shares one rate-limit bucket.
+      TRUSTED_PROXY_HOPS: "1"
+      # Must be the public origin, or the browser blocks every API call.
+      CORS_ORIGINS: ${PUBLIC_ORIGIN:?set PUBLIC_ORIGIN, e.g. https://studio.example.com}
+    deploy:
+      resources:
+        limits:
+          memory: ${BACKEND_MEMORY_LIMIT:-512m}
+    logging: *logging
+
+  edge:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      # Bare domain (studio.example.com) for automatic HTTPS, or ":80" to test locally.
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS, e.g. studio.example.com}
+      BACKEND_ORIGIN: backend:3001
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      # Certificates must outlive the container, or every restart re-runs ACME and will
+      # eventually hit Let's Encrypt's rate limits.
+      - caddy-data:/data
+      - caddy-config:/config
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/api/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: ${EDGE_MEMORY_LIMIT:-128m}
+    logging: *logging
+
+volumes:
+  caddy-data:
+  caddy-config:
