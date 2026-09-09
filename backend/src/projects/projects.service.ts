@@ -4,7 +4,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { AppConfig } from '@/config/app-config.service';
 import { CreateProjectDto } from '@/projects/dto/create-project.dto';
 import { ConnectionTargetPolicy } from '@/projects/connection-target.policy';
-import { ProjectConnectionTarget, ProjectSummary } from '@/projects/projects.types';
+import { ProjectConnectionTarget, ProjectSummary, ProvisionedProject } from '@/projects/projects.types';
 import { ProjectsApplication } from '@/projects/projects-service.port';
 import {
   DATABASE_CONNECTION_TESTER, DatabaseConnectionTester, MANAGED_DATABASE_ADMIN, ManagedDatabaseAdmin,
@@ -59,7 +59,7 @@ export class ProjectsService implements ProjectsApplication {
     return (await this.projects.listOwned(userId)).map((project) => this.withConnection(project));
   }
 
-  async createManaged(userId: string, name: string): Promise<ProjectSummary> {
+  async createManaged(userId: string, name: string): Promise<ProvisionedProject> {
     // Checked before CREATE ROLE, so a refused request leaves nothing behind. This is a
     // best-effort cap: two simultaneous requests can both pass it, which costs one extra
     // database rather than anything unbounded.
@@ -79,7 +79,7 @@ export class ProjectsService implements ProjectsApplication {
     await this.databaseAdmin.createRole(roleName, password);
     try {
       await this.databaseAdmin.createDatabase(database, roleName);
-      return await this.create(userId, {
+      const project = await this.create(userId, {
         name,
         host: this.config.postgres.host,
         port: this.config.postgres.port,
@@ -87,6 +87,9 @@ export class ProjectsService implements ProjectsApplication {
         dbUser: roleName,
         dbPassword: password,
       }, true);
+      // Returned once, so the user can connect immediately. It is never retrievable
+      // again — only rotated.
+      return { project, password };
     } catch (err) {
       await this.databaseAdmin.dropDatabase(database).catch(() => {});
       await this.databaseAdmin.dropRole(roleName).catch(() => {});

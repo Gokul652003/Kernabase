@@ -69,15 +69,21 @@ export const api = {
 
   listProjects: () => request<Project[]>('/projects'),
 
-  createProject: (draft: NewProjectDraft) => {
+  /**
+   * Provisioning returns the generated password once — it is encrypted at rest and
+   * cannot be read back — so both shapes are normalised to { project, password }.
+   */
+  createProject: async (draft: NewProjectDraft): Promise<{ project: Project; password: string | null }> => {
     if (draft.mode === 'managed') {
-      return request<Project>('/projects/managed', {
+      const created = await request<{ project: Project; password: string }>('/projects/managed', {
         method: 'POST',
         body: JSON.stringify({ name: draft.name }),
       });
+      return { project: created.project, password: created.password };
     }
     const { mode: _mode, ...connection } = draft;
-    return request<Project>('/projects', { method: 'POST', body: JSON.stringify(connection) });
+    // A connected project uses a password the user already knows.
+    return { project: await request<Project>('/projects', { method: 'POST', body: JSON.stringify(connection) }), password: null };
   },
 
   getProject: (projectId: string) => request<Project>(`/projects/${encodeURIComponent(projectId)}`),

@@ -106,8 +106,10 @@ test('creating a managed project provisions credentials and saves an owned proje
   });
 
   const result = await service.createManaged('user-1', 'Acme production');
-  assert.equal(result.name, 'Acme production');
-  assert.equal(result.isManaged, true);
+  assert.equal(result.project.name, 'Acme production');
+  assert.equal(result.project.isManaged, true);
+  // Returned once here or the user has no way to reach a usable password.
+  assert.ok(result.password.length > 20);
   assert.deepEqual(calls, ['create-role', 'create-database', 'test', 'save:user-1:managed-db:true']);
 });
 
@@ -269,7 +271,8 @@ test('a user under the quota can still provision', async () => {
   });
 
   const result = await service.createManaged('user-1', 'Second');
-  assert.equal(result.isManaged, true);
+  assert.equal(result.project.isManaged, true);
+  assert.ok(result.password.length > 20, 'the password must be returned once, or it is unreachable');
   assert.equal(created.length, 1);
 });
 

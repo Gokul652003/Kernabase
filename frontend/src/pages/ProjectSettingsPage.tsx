@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Database, Plug, Trash2 } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import { DetailPageSkeleton } from '../components/Skeleton';
@@ -20,7 +20,11 @@ export function ProjectSettingsPage() {
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
+  // Seeded when arriving straight from provisioning, which is the only moment the
+  // generated password exists outside the database.
+  const location = useLocation();
+  const provisioned = (location.state as { revealedPassword?: string } | null)?.revealedPassword ?? null;
+  const [revealedPassword, setRevealedPassword] = useState<string | null>(provisioned);
   const [regenerating, setRegenerating] = useState(false);
 
   useEffect(() => {

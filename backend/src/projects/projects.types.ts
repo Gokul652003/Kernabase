@@ -24,3 +24,14 @@ export interface ProjectConnectionTarget {
   database: string;
   user: string;
 }
+
+/**
+ * A newly provisioned project, with its password included exactly once.
+ *
+ * The password is encrypted at rest and cannot be read back, so if it is not returned
+ * here the user's only route to a usable one is rotating a password they never had.
+ */
+export interface ProvisionedProject {
+  project: ProjectSummary;
+  password: string;
+}

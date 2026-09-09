@@ -33,10 +33,17 @@ export function DashboardPage() {
   }, [load]);
 
   async function handleCreate(draft: NewProjectDraft) {
-    const project = await api.createProject(draft);
+    const { project, password } = await api.createProject(draft);
     setModalOpen(false);
     toast.success(`Project "${project.name}" created`);
     await load();
+    if (password) {
+      // A provisioned password is shown once and cannot be read back, so land on the
+      // page that displays it rather than making the user rotate one they never saw.
+      // Router state is deliberate: it survives the navigation but not a reload.
+      navigate(`/projects/${project.id}/settings`, { state: { revealedPassword: password } });
+      return;
+    }
     navigate(`/projects/${project.id}`);
   }
 
