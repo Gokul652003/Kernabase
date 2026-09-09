@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: kernabase-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-mydb}
+    ports:
+      - "55432:5432"
+    volumes:
+      - mydb-studio-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-mydb}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-postgres}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-mydb}
+      # Off by default: it is what stops a user pointing the studio at the control
+      # plane or scanning the internal network. Enable only on a trusted install.
+      ALLOW_PRIVATE_DATABASE_HOSTS: ${ALLOW_PRIVATE_DATABASE_HOSTS:-false}
+      STUDIO_JWT_SECRET: ${STUDIO_JWT_SECRET:?set STUDIO_JWT_SECRET}
+      STUDIO_SECRET: ${STUDIO_SECRET:?set STUDIO_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      TENANT_POOL_CONNECTION_BUDGET: ${TENANT_POOL_CONNECTION_BUDGET:-100}
+      TENANT_STATEMENT_TIMEOUT_MS: ${TENANT_STATEMENT_TIMEOUT_MS:-15000}
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/api/health/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  mydb-studio-data:
